@@ -1,4 +1,4 @@
-# Fallout Shelter Editor
+# <img src=FalloutSheleterEditor/icon.ico style="height:1em;"/> Fallout Shelter Editor
 FalloutShelterEditor is a versatile WinForms application designed for Fallout Shelter enthusiasts and modders. This tool simplifies the process of editing game data files, offering a user-friendly interface to modify and customize various aspects of your Fallout Shelter experience.
 
 ## Getting Started
