@@ -34,7 +34,6 @@ namespace FalloutShelterEditor
             }
             catch (Exception x)
             {
-                Debug.WriteLine(x.GetType() + "@Vault.Decrypt(" + data.Length + "): " + x.Message);
                 return null;
             }
         }
@@ -58,7 +57,6 @@ namespace FalloutShelterEditor
             }
             catch (Exception x)
             {
-                Debug.WriteLine(x.GetType() + "@Vault.Encrypt(" + data.Length + "): " + x.Message);
                 return null;
             }
         }
@@ -86,8 +84,9 @@ namespace FalloutShelterEditor
             }
             catch (Exception x)
             {
-                Debug.WriteLine(x.GetType() + "@Vault.Read(" + path + "): " + x.Message);
-                return false;
+                var content = File.ReadAllText(path);
+                vault = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(content);
+                return true;
             }
         }
 
@@ -333,17 +332,34 @@ namespace FalloutShelterEditor
                 // When the node is a Dictionary, cast it to one
                 var tree = (Dictionary<string, object>)node;
 
-                foreach (var branch in tree.Keys)
+                // If the head is not a key in the dictionary, create a new dictionary or array if tail is not empty
+                if (!tree.ContainsKey(head))
                 {
-                    // Follow every branch
-                    if (!branch.Equals(head)) continue;
-                    // If it's what we're looking for (head)
-                    if (tail.Length != 0) return SubSet(tree[branch], value, tail);
-                    // Set the Value
-                    tree[branch] = value;
-                    return true;
-                    // Keep following the path (tail)
+                    if (tail.Length == 0)
+                    {
+                        tree[head] = value;
+                        return true;
+                    }
+                    else
+                    {
+                        if (int.TryParse(tail[0], out _))
+                        {
+                            tree[head] = new ArrayList();
+                        }
+                        else
+                        {
+                            tree[head] = new Dictionary<string, object>();
+                        }
+                    }
                 }
+
+                if (tail.Length != 0)
+                {
+                    return SubSet(tree[head], value, tail);
+                }
+                // Set the Value
+                tree[head] = value;
+                return true;
             }
             else if (type == typeof(ArrayList))
             {
@@ -351,39 +367,45 @@ namespace FalloutShelterEditor
                 var array = (ArrayList)node;
 
                 // Check if the head is an index and convert it
-                var index = 0;
-                var valid = int.TryParse(head, out index);
+                var valid = int.TryParse(head, out int index);
 
                 if (valid)
                 {
-                    // If the head is an Integer
+                    // Ensure the array is large enough
+                    while (array.Count <= index)
+                    {
+                        array.Add(null);
+                    }
+
                     if (tail.Length == 0)
                     {
                         // If the path is over, Set its Value
                         array[index] = value;
                         return true;
                     }
+                    // If the next path element is an integer, create a new array
+                    if (int.TryParse(tail[0], out _))
+                    {
+                        if (array[index] == null)
+                        {
+                            array[index] = new ArrayList();
+                        }
+                    }
+                    else
+                    {
+                        if (array[index] == null)
+                        {
+                            array[index] = new Dictionary<string, object>();
+                        }
+                    }
+
                     // Keep following the path (tail)
                     return SubSet(array[index], value, tail);
                 }
-                // If we didn't get an index, just carry on for all elements
-                if (tail.Length == 0)
-                {
-                    // Follow each path and retain head in case of gateway arrays
-                    var validArray = true;
-                    foreach (var element in array)
-                    {
-                        if (SubSet(element, value, path) == false)
-                        {
-                            validArray = false;
-                        }
-                    }
-                    return validArray;
-                }
                 else
                 {
-                    // Keep following the path from every branch (tail), maintain the path
-                    var validArray = true;
+                    // Handle the case where the head is not an index
+                    bool validArray = true;
                     foreach (var element in array)
                     {
                         if (SubSet(element, value, path) == false)
@@ -401,8 +423,6 @@ namespace FalloutShelterEditor
                                 "): Unable to follow this path.");
                 return false;
             }
-
-            return false;
         }
 
         private static string ExportNode(object node, int indent = 0)
